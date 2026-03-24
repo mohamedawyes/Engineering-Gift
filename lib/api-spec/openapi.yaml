@@ -1,15 +1,16 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Engineering Gift API - ELV Calculations platform
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: calculations
+    description: Calculation history operations
 paths:
   /healthz:
     get:
@@ -24,6 +25,57 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /calculations:
+    get:
+      operationId: getCalculations
+      tags: [calculations]
+      summary: Get calculation history
+      description: Returns all saved calculations
+      responses:
+        "200":
+          description: List of calculations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Calculation"
+    post:
+      operationId: saveCalculation
+      tags: [calculations]
+      summary: Save a calculation
+      description: Save a calculation result to history
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCalculationInput"
+      responses:
+        "201":
+          description: Calculation saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Calculation"
+  /calculations/{id}:
+    delete:
+      operationId: deleteCalculation
+      tags: [calculations]
+      summary: Delete a calculation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Calculation deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteResult"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +85,54 @@ components:
           type: string
       required:
         - status
-
+    Calculation:
+      type: object
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+          description: "Type of calculation: voltage_drop, fiber_budget, inrush_current"
+        projectName:
+          type: string
+        engineerName:
+          type: string
+        inputs:
+          type: string
+          description: JSON string of input values
+        results:
+          type: string
+          description: JSON string of result values
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - type
+        - inputs
+        - results
+        - createdAt
+    CreateCalculationInput:
+      type: object
+      properties:
+        type:
+          type: string
+        projectName:
+          type: string
+        engineerName:
+          type: string
+        inputs:
+          type: string
+        results:
+          type: string
+      required:
+        - type
+        - inputs
+        - results
+    DeleteResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+      required:
+        - success

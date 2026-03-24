@@ -16,12 +16,45 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **API codegen**: Orval (from OpenAPI spec)
 - **Build**: esbuild (CJS bundle)
 
+## Artifacts
+
+### Engineering Gift (`artifacts/engineering-gift`)
+
+A professional SaaS-style ELV (Extra Low Voltage) engineering calculator web app.
+
+**Features:**
+- Landing page with hero section (English + Arabic subtitle)
+- Sidebar navigation with dark/light mode toggle
+- 3 calculator tools with real-time calculations:
+  1. Voltage Drop Calculator (fire alarm & cables) - formula: VD = (2 × L × I × ρ) / A
+  2. Fiber Optic Link Budget Calculator - Tx Power, attenuation, connector/splice losses
+  3. Inrush Current Calculator - breaker type selection (B/C/D)
+- Interactive recharts line chart (voltage drop vs distance)
+- PDF export (jsPDF) and Excel export (SheetJS)
+- Calculation history saved to PostgreSQL via API
+- Engineering formulas display on each page
+- Tooltip explanations on inputs
+- "Example Values" button on each calculator
+- Responsive (mobile + desktop)
+
+**Frontend packages:** clsx, date-fns, framer-motion, jspdf, jspdf-autotable, recharts, tailwind-merge, xlsx
+
+### API Server (`artifacts/api-server`)
+
+Express 5 API handling calculation history persistence.
+
+**Routes:**
+- `GET /api/calculations` - list all saved calculations
+- `POST /api/calculations` - save a calculation
+- `DELETE /api/calculations/:id` - delete a calculation
+
 ## Structure
 
 ```text
 artifacts-monorepo/
 ├── artifacts/              # Deployable applications
-│   └── api-server/         # Express API server
+│   ├── api-server/         # Express API server
+│   └── engineering-gift/   # React + Vite ELV calculator app
 ├── lib/                    # Shared libraries
 │   ├── api-spec/           # OpenAPI spec + Orval codegen config
 │   ├── api-client-react/   # Generated React Query hooks
@@ -68,11 +101,9 @@ Database layer using Drizzle ORM with PostgreSQL. Exports a Drizzle client insta
 
 - `src/index.ts` — creates a `Pool` + Drizzle instance, exports schema
 - `src/schema/index.ts` — barrel re-export of all models
-- `src/schema/<modelname>.ts` — table definitions with `drizzle-zod` insert schemas (no models definitions exist right now)
+- `src/schema/calculations.ts` — calculations table for storing ELV calculation history
 - `drizzle.config.ts` — Drizzle Kit config (requires `DATABASE_URL`, automatically provided by Replit)
 - Exports: `.` (pool, db, schema), `./schema` (schema only)
-
-Production migrations are handled by Replit when publishing. In development, we just use `pnpm --filter @workspace/db run push`, and we fallback to `pnpm --filter @workspace/db run push-force`.
 
 ### `lib/api-spec` (`@workspace/api-spec`)
 
@@ -82,15 +113,3 @@ Owns the OpenAPI 3.1 spec (`openapi.yaml`) and the Orval config (`orval.config.t
 2. `lib/api-zod/src/generated/` — Zod schemas
 
 Run codegen: `pnpm --filter @workspace/api-spec run codegen`
-
-### `lib/api-zod` (`@workspace/api-zod`)
-
-Generated Zod schemas from the OpenAPI spec (e.g. `HealthCheckResponse`). Used by `api-server` for response validation.
-
-### `lib/api-client-react` (`@workspace/api-client-react`)
-
-Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHealthCheck`, `healthCheck`).
-
-### `scripts` (`@workspace/scripts`)
-
-Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.
