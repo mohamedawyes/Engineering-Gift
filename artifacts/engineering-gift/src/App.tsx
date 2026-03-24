@@ -9,6 +9,7 @@ import VoltageDrop from "@/pages/VoltageDrop";
 import FiberBudget from "@/pages/FiberBudget";
 import InrushCurrent from "@/pages/InrushCurrent";
 import History from "@/pages/History";
+import FireAlarm from "@/pages/FireAlarm";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -29,6 +30,7 @@ function Router() {
         <Route path="/fiber-budget" component={FiberBudget} />
         <Route path="/inrush-current" component={InrushCurrent} />
         <Route path="/history" component={History} />
+        <Route path="/fire-alarm" component={FireAlarm} />
         <Route component={NotFound} />
       </Switch>
     </AppLayout>

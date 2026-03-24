@@ -3,13 +3,13 @@ import {
   Calculator, 
   Home, 
   History, 
-  Settings, 
   Zap, 
   Activity,
   Wifi,
   Moon,
   Sun,
-  Menu
+  Menu,
+  Flame
 } from "lucide-react";
 import { useTheme } from "../theme-provider";
 import { Button } from "../ui/button";
@@ -25,6 +25,7 @@ function cn(...inputs: ClassValue[]) {
 
 const navItems = [
   { href: "/", label: "Home", icon: Home },
+  { href: "/fire-alarm", label: "Fire Alarm LSN", icon: Flame, badge: "NEW" },
   { href: "/voltage-drop", label: "Voltage Drop", icon: Zap },
   { href: "/fiber-budget", label: "Fiber Budget", icon: Wifi },
   { href: "/inrush-current", label: "Inrush Current", icon: Activity },
@@ -64,7 +65,12 @@ export function Sidebar() {
               )}
             >
               <item.icon className={cn("w-5 h-5 transition-transform group-hover:scale-110", isActive && "text-primary")} />
-              {item.label}
+              <span className="flex-1">{item.label}</span>
+              {"badge" in item && item.badge && (
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white leading-none">
+                  {item.badge}
+                </span>
+              )}
             </Link>
           );
         })}

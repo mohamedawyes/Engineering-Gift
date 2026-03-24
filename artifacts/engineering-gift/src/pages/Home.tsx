@@ -1,8 +1,17 @@
 import { Link } from "wouter";
 import { motion } from "framer-motion";
-import { Zap, Wifi, Activity, ArrowRight, BookOpen } from "lucide-react";
+import { Zap, Wifi, Activity, ArrowRight, BookOpen, Flame } from "lucide-react";
 
 const tools = [
+  {
+    title: "Fire Alarm LSN",
+    description: "Full LSN loop design: brands, devices, voltage drop per loop, battery sizing, and SLD generation.",
+    icon: Flame,
+    href: "/fire-alarm",
+    color: "from-red-500 to-orange-500",
+    shadow: "shadow-red-500/20",
+    badge: "NEW"
+  },
   {
     title: "Voltage Drop Calculator",
     description: "Calculate voltage drop for fire alarms and standard cables over distance.",
@@ -93,7 +102,12 @@ export default function Home() {
               transition={{ delay: 0.2 + index * 0.1 }}
             >
               <Link href={tool.href}>
-                <div className="group block h-full p-6 rounded-3xl glass-card hover:bg-white/90 dark:hover:bg-slate-800/80 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 cursor-pointer border border-slate-200/50 dark:border-white/5">
+                <div className="group block h-full p-6 rounded-3xl glass-card hover:bg-white/90 dark:hover:bg-slate-800/80 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 cursor-pointer border border-slate-200/50 dark:border-white/5 relative">
+                  {"badge" in tool && tool.badge && (
+                    <span className="absolute top-4 right-4 text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-500 text-white">
+                      {tool.badge}
+                    </span>
+                  )}
                   <div className={`w-14 h-14 rounded-2xl mb-6 flex items-center justify-center bg-gradient-to-br ${tool.color} shadow-lg ${tool.shadow}`}>
                     <tool.icon className="w-7 h-7 text-white" />
                   </div>
