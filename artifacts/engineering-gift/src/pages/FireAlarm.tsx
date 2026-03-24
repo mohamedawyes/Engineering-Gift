@@ -9,8 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { 
   Flame, Battery, Cable, Plus, Trash2, Copy, ChevronDown, ChevronUp, 
-  Settings2, Download, FileText, FileSpreadsheet, AlertTriangle, CheckCircle2,
-  AlertCircle, Save, Upload, Info
+  GitBranch, Download, FileText, FileSpreadsheet, AlertTriangle, CheckCircle2,
+  AlertCircle, Info
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { brands, Brand, Panel, Device } from "@/lib/fireAlarmData";
@@ -78,6 +78,7 @@ export default function FireAlarm() {
   const [standbyHours, setStandbyHours] = useState(24);
   const [alarmMinutes, setAlarmMinutes] = useState(30);
   const [language, setLanguage] = useState<"en" | "ar">("en");
+  const svgRef = useRef<SVGSVGElement>(null);
 
   // Derived Data
   const currentBrand = useMemo(() => brands.find(b => b.id === selectedBrandId) || brands[0], [selectedBrandId]);
@@ -251,63 +252,86 @@ export default function FireAlarm() {
   const t = (en: string, ar: string) => language === "en" ? en : ar;
 
   // Exports
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     try {
-      const doc = new jsPDF();
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
       
       // Header
       doc.setFontSize(22);
       doc.setTextColor(0, 112, 243);
       doc.text("Engineering Gift", 14, 20);
-      
       doc.setFontSize(10);
       doc.setTextColor(100, 100, 100);
-      doc.text("Fire Alarm LSN Voltage Drop & Battery Report", 14, 26);
+      doc.text("Fire Alarm LSN — Full System Report", 14, 26);
       doc.line(14, 30, 196, 30);
       
       // Project Info
-      doc.setFontSize(12);
+      doc.setFontSize(11);
       doc.setTextColor(20, 20, 20);
       doc.text(`Project: ${projectInfo.name || 'N/A'}`, 14, 40);
-      doc.text(`Engineer: ${projectInfo.engineer || 'N/A'}`, 14, 46);
-      doc.text(`Client: ${projectInfo.client || 'N/A'}`, 14, 52);
-      doc.text(`Date: ${projectInfo.date}`, 14, 58);
+      doc.text(`Engineer: ${projectInfo.engineer || 'N/A'}`, 14, 47);
+      doc.text(`Client: ${projectInfo.client || 'N/A'}`, 14, 54);
+      doc.text(`Date: ${projectInfo.date}`, 14, 61);
+      doc.text(`Brand: ${currentBrand?.name}   |   Panel: ${currentPanel?.name}`, 14, 68);
       
-      doc.text(`Brand: ${currentBrand?.name} | Panel: ${currentPanel?.name}`, 14, 66);
-      
-      // Loops Summary
-      let yPos = 74;
-      doc.text("System Loops Summary", 14, yPos);
-      yPos += 4;
-      
-      const loopsData = loopCalculations.map(l => [
-        l.name,
-        l.totalDevices.toString(),
-        `${l.standbyCurrentMA.toFixed(1)} mA`,
-        `${l.alarmCurrentMA.toFixed(1)} mA`,
-        `${l.voltageDrop.toFixed(2)} V`,
-        `${l.voltageDropPct.toFixed(1)}%`,
-        `${l.endVoltage.toFixed(2)} V`,
-        l.status.toUpperCase()
-      ]);
-      
+      // Loops Summary Table
+      doc.setFontSize(12);
+      doc.setTextColor(0, 112, 243);
+      doc.text("System Loops Summary", 14, 78);
       // @ts-ignore
       doc.autoTable({
-        startY: yPos,
-        head: [['Loop', 'Devices', 'Standby', 'Alarm', 'VDrop (V)', 'VDrop %', 'End Volt', 'Status']],
-        body: loopsData,
+        startY: 81,
+        head: [['Loop', 'Devices', 'Standby mA', 'Alarm mA', 'VDrop (V)', 'VDrop %', 'End Volt', 'Status']],
+        body: loopCalculations.map(l => [
+          l.name, l.totalDevices,
+          l.standbyCurrentMA.toFixed(1), l.alarmCurrentMA.toFixed(1),
+          l.voltageDrop.toFixed(2), `${l.voltageDropPct.toFixed(1)}%`,
+          `${l.endVoltage.toFixed(2)} V`, l.status.toUpperCase()
+        ]),
         theme: 'grid',
         headStyles: { fillColor: [0, 112, 243] },
         styles: { fontSize: 8 }
       });
       // @ts-ignore
-      yPos = doc.lastAutoTable.finalY + 10;
-      
-      // Battery Calc
+      let yPos = doc.lastAutoTable.finalY + 8;
+
+      // Device Address List per Loop
       doc.setFontSize(12);
-      doc.text("Battery Calculation", 14, yPos);
-      yPos += 4;
-      
+      doc.setTextColor(0, 112, 243);
+      doc.text("Device Address List", 14, yPos);
+      yPos += 3;
+      const deviceRows: string[][] = [];
+      loopCalculations.forEach((loop, li) => {
+        let addrSeq = 1;
+        loop.devices.forEach(ld => {
+          const devInfo = ld.deviceId === 'custom'
+            ? { name: ld.customName || 'Custom', type: 'custom' }
+            : currentBrand.devices.find(d => d.id === ld.deviceId) || { name: 'Unknown', type: 'unknown' };
+          for (let q = 0; q < ld.quantity; q++) {
+            const addr = `L${li + 1}-${String(addrSeq).padStart(3, '0')}`;
+            deviceRows.push([loop.name, addr, devInfo.name, devInfo.type.charAt(0).toUpperCase() + devInfo.type.slice(1)]);
+            addrSeq++;
+          }
+        });
+      });
+      // @ts-ignore
+      doc.autoTable({
+        startY: yPos,
+        head: [['Loop', 'Address', 'Device Name', 'Type']],
+        body: deviceRows,
+        theme: 'striped',
+        headStyles: { fillColor: [15, 23, 42] },
+        styles: { fontSize: 8 }
+      });
+      // @ts-ignore
+      yPos = doc.lastAutoTable.finalY + 8;
+
+      // Battery Calculation
+      if (yPos > 240) { doc.addPage(); yPos = 20; }
+      doc.setFontSize(12);
+      doc.setTextColor(0, 112, 243);
+      doc.text("Battery Calculation (EN-54 | 25% Safety Factor)", 14, yPos);
+      yPos += 3;
       // @ts-ignore
       doc.autoTable({
         startY: yPos,
@@ -323,9 +347,46 @@ export default function FireAlarm() {
         theme: 'grid',
         styles: { fontSize: 9 }
       });
-      
+
+      // SLD Diagram on new page
+      if (svgRef.current) {
+        try {
+          const svgEl = svgRef.current;
+          const svgData = new XMLSerializer().serializeToString(svgEl);
+          const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+          const url = URL.createObjectURL(svgBlob);
+          await new Promise<void>((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+              const canvas = document.createElement('canvas');
+              const scale = 2;
+              canvas.width = (svgEl.viewBox.baseVal.width || 900) * scale;
+              canvas.height = (svgEl.viewBox.baseVal.height || 600) * scale;
+              const ctx = canvas.getContext('2d');
+              if (ctx) {
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+              }
+              const dataUrl = canvas.toDataURL('image/png');
+              doc.addPage('a4', 'landscape');
+              doc.setFontSize(13);
+              doc.setTextColor(0, 112, 243);
+              doc.text("Single Line Diagram (SLD)", 14, 14);
+              const pdfW = 267;
+              const pdfH = Math.min(180, (canvas.height / canvas.width) * pdfW);
+              doc.addImage(dataUrl, 'PNG', 14, 18, pdfW, pdfH);
+              URL.revokeObjectURL(url);
+              resolve();
+            };
+            img.onerror = () => { URL.revokeObjectURL(url); resolve(); };
+            img.src = url;
+          });
+        } catch { /* skip diagram if SVG render fails */ }
+      }
+
       doc.save(`FireAlarm_Report_${projectInfo.name || 'Project'}.pdf`);
-      toast({ title: "Success", description: "PDF exported successfully!" });
+      toast({ title: "PDF Exported", description: "Full report with SLD downloaded successfully!" });
     } catch (e) {
       toast({ title: "Export Failed", description: "Failed to generate PDF.", variant: "destructive" });
     }
@@ -334,26 +395,59 @@ export default function FireAlarm() {
   const handleExportExcel = () => {
     try {
       const wb = XLSX.utils.book_new();
+
+      // Sheet 0: Project Info
+      const projData = [
+        { Field: "Project Name", Value: projectInfo.name || 'N/A' },
+        { Field: "Engineer", Value: projectInfo.engineer || 'N/A' },
+        { Field: "Client", Value: projectInfo.client || 'N/A' },
+        { Field: "Date", Value: projectInfo.date },
+        { Field: "Brand", Value: currentBrand?.name || 'N/A' },
+        { Field: "Panel Model", Value: currentPanel?.name || 'N/A' },
+      ];
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(projData), "Project Info");
       
       // Sheet 1: Loops Summary
       const loopsData = loopCalculations.map(l => ({
         "Loop Name": l.name,
         "Cable Length (m)": l.cableLength,
-        "Cable Size (mm2)": l.cableSizeMM2,
+        "Cable Size (mm²)": l.cableSizeMM2,
         "Material": l.cableMaterial.toUpperCase(),
         "Total Devices": l.totalDevices,
         "Standby mA": l.standbyCurrentMA.toFixed(2),
         "Alarm mA": l.alarmCurrentMA.toFixed(2),
-        "Resistance (Ohms)": l.loopResistance.toFixed(2),
+        "Resistance (Ω)": l.loopResistance.toFixed(2),
         "Voltage Drop (V)": l.voltageDrop.toFixed(2),
         "Drop %": l.voltageDropPct.toFixed(2),
         "End Voltage (V)": l.endVoltage.toFixed(2),
         "Status": l.status.toUpperCase()
       }));
-      const ws1 = XLSX.utils.json_to_sheet(loopsData);
-      XLSX.utils.book_append_sheet(wb, ws1, "Loops Summary");
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(loopsData), "Loops Summary");
+
+      // Sheet 2: Device Address List (SLD data)
+      const deviceAddressRows: object[] = [];
+      loopCalculations.forEach((loop, li) => {
+        let addrSeq = 1;
+        loop.devices.forEach(ld => {
+          const devInfo = ld.deviceId === 'custom'
+            ? { name: ld.customName || 'Custom', type: 'custom', currentMA: ld.customCurrentMA || 0, alarmCurrentMA: ld.customAlarmCurrentMA || 0 }
+            : currentBrand.devices.find(d => d.id === ld.deviceId) || { name: 'Unknown', type: 'unknown', currentMA: 0, alarmCurrentMA: 0 };
+          for (let q = 0; q < ld.quantity; q++) {
+            deviceAddressRows.push({
+              "Loop": loop.name,
+              "Address": `L${li + 1}-${String(addrSeq).padStart(3, '0')}`,
+              "Device Name": devInfo.name,
+              "Type": devInfo.type.charAt(0).toUpperCase() + devInfo.type.slice(1),
+              "Standby mA": devInfo.currentMA,
+              "Alarm mA": devInfo.alarmCurrentMA,
+            });
+            addrSeq++;
+          }
+        });
+      });
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(deviceAddressRows), "Device Addresses");
       
-      // Sheet 2: Battery Calc
+      // Sheet 3: Battery Calc
       const battData = [
         { Parameter: "System Standby Current (mA)", Value: systemCalculations.totalStandbyMA.toFixed(2) },
         { Parameter: "System Alarm Current (mA)", Value: systemCalculations.totalAlarmMA.toFixed(2) },
@@ -362,48 +456,13 @@ export default function FireAlarm() {
         { Parameter: "Calculated Capacity (Ah)", Value: systemCalculations.batteryAh.toFixed(2) },
         { Parameter: "Recommended Battery (Ah)", Value: systemCalculations.recommendedBattery }
       ];
-      const ws2 = XLSX.utils.json_to_sheet(battData);
-      XLSX.utils.book_append_sheet(wb, ws2, "Battery Calc");
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(battData), "Battery Calc");
       
-      XLSX.writeFile(wb, `FireAlarm_Calc_${projectInfo.name || 'Project'}.xlsx`);
-      toast({ title: "Success", description: "Excel exported successfully!" });
+      XLSX.writeFile(wb, `FireAlarm_Report_${projectInfo.name || 'Project'}.xlsx`);
+      toast({ title: "Excel Exported", description: "4-sheet report with device addresses downloaded!" });
     } catch (e) {
       toast({ title: "Export Failed", description: "Failed to generate Excel.", variant: "destructive" });
     }
-  };
-
-  const handleSaveProject = () => {
-    const data = JSON.stringify({ projectInfo, selectedBrandId, selectedPanelId, loops, standbyHours, alarmMinutes });
-    const blob = new Blob([data], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `FireAlarm_${projectInfo.name || 'Project'}.json`;
-    a.click();
-    toast({ title: "Project Saved", description: "Your project file has been downloaded." });
-  };
-
-  const handleLoadProject = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const data = JSON.parse(event.target?.result as string);
-        if (data.loops) {
-          setProjectInfo(data.projectInfo || projectInfo);
-          setSelectedBrandId(data.selectedBrandId || brands[0].id);
-          setSelectedPanelId(data.selectedPanelId || "");
-          setLoops(data.loops);
-          setStandbyHours(data.standbyHours || 24);
-          setAlarmMinutes(data.alarmMinutes || 30);
-          toast({ title: "Project Loaded", description: "Successfully loaded project." });
-        }
-      } catch (err) {
-        toast({ title: "Load Failed", description: "Invalid project file.", variant: "destructive" });
-      }
-    };
-    reader.readAsText(file);
   };
 
   return (
@@ -474,17 +533,6 @@ export default function FireAlarm() {
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex gap-2">
-                <Button variant="outline" className="flex-1 text-xs" onClick={handleSaveProject}>
-                  <Save className="w-4 h-4 mr-2" /> Save
-                </Button>
-                <div className="relative flex-1">
-                  <Button variant="outline" className="w-full text-xs">
-                    <Upload className="w-4 h-4 mr-2" /> Load
-                  </Button>
-                  <input type="file" accept=".json" onChange={handleLoadProject} className="absolute inset-0 opacity-0 cursor-pointer" />
-                </div>
-              </div>
             </CardContent>
           </Card>
 
@@ -520,7 +568,7 @@ export default function FireAlarm() {
                 <Battery className="w-4 h-4 mr-2" /> {t("Battery", "البطارية")}
               </TabsTrigger>
               <TabsTrigger value="sld" className="data-[state=active]:bg-primary data-[state=active]:text-white rounded-lg px-6">
-                <Settings2 className="w-4 h-4 mr-2" /> {t("Diagram", "مخطط الدائرة")}
+                <GitBranch className="w-4 h-4 mr-2" /> {t("Diagram", "مخطط الدائرة")}
               </TabsTrigger>
               <TabsTrigger value="export" className="data-[state=active]:bg-primary data-[state=active]:text-white rounded-lg px-6">
                 <Download className="w-4 h-4 mr-2" /> {t("Export", "التصدير")}
@@ -811,46 +859,203 @@ export default function FireAlarm() {
           <TabsContent value="sld">
             <Card className="glass-card shadow-xl border-0">
               <CardHeader>
-                <CardTitle>{t("Single Line Diagram", "مخطط الدائرة")}</CardTitle>
-                <CardDescription>Auto-generated architecture schematic</CardDescription>
-              </CardHeader>
-              <CardContent className="overflow-x-auto">
-                <div className="min-w-[800px] p-8 flex justify-center bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
-                  <svg width="100%" height={Math.max(400, loopCalculations.length * 120 + 150)} className="font-sans">
-                    {/* Panel Node */}
-                    <rect x="50%" y="20" width="160" height="80" rx="12" fill="white" stroke="#3b82f6" strokeWidth="3" transform="translate(-80, 0)" className="dark:fill-slate-800" />
-                    <text x="50%" y="55" textAnchor="middle" fill="currentColor" className="font-bold text-lg dark:fill-white">{currentBrand?.name}</text>
-                    <text x="50%" y="75" textAnchor="middle" fill="#64748b" className="text-sm font-medium">{currentPanel?.name}</text>
-
-                    {/* Loops */}
-                    {loopCalculations.map((loop, i) => {
-                      const yOffset = 180 + i * 140;
-                      const lineColor = loop.status === 'danger' ? '#ef4444' : loop.status === 'warning' ? '#f59e0b' : '#10b981';
-                      
-                      return (
-                        <g key={loop.id}>
-                          {/* Line from Panel */}
-                          {i === 0 && <line x1="50%" y1="100" x2="50%" y2="180" stroke={lineColor} strokeWidth="3" />}
-                          {i > 0 && <line x1="50%" y1={180 + (i-1)*140 + 80} x2="50%" y2={yOffset} stroke={lineColor} strokeWidth="3" />}
-                          
-                          {/* Loop Box */}
-                          <rect x="50%" y={yOffset} width="220" height="100" rx="8" fill="white" stroke={lineColor} strokeWidth="2" transform="translate(-110, 0)" className="dark:fill-slate-800" />
-                          <rect x="50%" y={yOffset} width="220" height="30" rx="8" fill={lineColor} opacity="0.1" transform="translate(-110, 0)" />
-                          
-                          <text x="50%" y={yOffset + 20} textAnchor="middle" fill={lineColor} className="font-bold">{loop.name}</text>
-                          
-                          <text x="50%" y={yOffset + 45} textAnchor="middle" fill="currentColor" className="text-xs dark:fill-slate-300" transform="translate(-40, 0)">🔥 Detectors: {loop.detectorsCount}</text>
-                          <text x="50%" y={yOffset + 45} textAnchor="middle" fill="currentColor" className="text-xs dark:fill-slate-300" transform="translate(50, 0)">📢 Sounders: {loop.soundersCount}</text>
-                          
-                          <text x="50%" y={yOffset + 65} textAnchor="middle" fill="currentColor" className="text-xs dark:fill-slate-300" transform="translate(-40, 0)">🔴 Callpoints: {loop.callpointsCount}</text>
-                          <text x="50%" y={yOffset + 65} textAnchor="middle" fill="currentColor" className="text-xs dark:fill-slate-300" transform="translate(50, 0)">📦 Modules: {loop.modulesCount}</text>
-                          
-                          <text x="50%" y={yOffset + 85} textAnchor="middle" fill="#64748b" className="text-xs font-mono">{loop.cableLength}m | {loop.cableSizeMM2}mm² | {loop.voltageDropPct.toFixed(1)}% Drop</text>
-                        </g>
-                      );
-                    })}
-                  </svg>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2"><GitBranch className="w-5 h-5 text-primary" /> {t("Single Line Diagram (SLD)", "مخطط الخط الواحد")}</CardTitle>
+                    <CardDescription>{t("Every device shown with its individual loop address", "كل جهاز يظهر بعنوانه الخاص على الحلقة")}</CardDescription>
+                  </div>
                 </div>
+              </CardHeader>
+              <CardContent className="overflow-x-auto p-0 pb-6">
+                {(() => {
+                  const COL_W = 170;
+                  const PANEL_W = 200;
+                  const PANEL_H = 72;
+                  const PANEL_Y = 24;
+                  const BUS_Y = PANEL_Y + PANEL_H + 20;
+                  const LOOP_BOX_H = 58;
+                  const LOOP_Y = BUS_Y + 12;
+                  const DEV_START_Y = LOOP_Y + LOOP_BOX_H + 24;
+                  const DEV_H = 72;
+
+                  // Expand each loop's devices into individual addressed units
+                  const expandedLoops = loopCalculations.map((loop, li) => {
+                    const devices: { addr: string; name: string; type: string; color: string }[] = [];
+                    let seq = 1;
+                    loop.devices.forEach(ld => {
+                      const devInfo = ld.deviceId === 'custom'
+                        ? { name: ld.customName || 'Device', type: 'custom' }
+                        : (currentBrand.devices.find(d => d.id === ld.deviceId) || { name: 'Unknown', type: 'unknown' });
+                      const color = devInfo.type === 'detector' ? '#3b82f6'
+                        : devInfo.type === 'sounder' ? '#ef4444'
+                        : devInfo.type === 'callpoint' ? '#f59e0b'
+                        : devInfo.type === 'module' ? '#64748b'
+                        : '#8b5cf6';
+                      for (let q = 0; q < ld.quantity; q++) {
+                        devices.push({
+                          addr: `L${li + 1}-${String(seq).padStart(3, '0')}`,
+                          name: devInfo.name.length > 14 ? devInfo.name.slice(0, 13) + '…' : devInfo.name,
+                          type: devInfo.type,
+                          color
+                        });
+                        seq++;
+                      }
+                    });
+                    return { ...loop, expandedDevices: devices, loopIndex: li };
+                  });
+
+                  const maxDevices = Math.max(0, ...expandedLoops.map(l => l.expandedDevices.length));
+                  const svgW = Math.max(860, expandedLoops.length * COL_W + 80);
+                  const svgH = DEV_START_Y + maxDevices * DEV_H + 60;
+                  const panelX = svgW / 2 - PANEL_W / 2;
+
+                  const loopXCenter = (li: number) => 60 + li * COL_W + COL_W / 2 - 10;
+
+                  return (
+                    <div className="bg-white dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 m-4 overflow-x-auto">
+                      <svg
+                        ref={svgRef}
+                        width={svgW}
+                        height={svgH}
+                        viewBox={`0 0 ${svgW} ${svgH}`}
+                        className="font-sans"
+                        style={{ minWidth: svgW }}
+                      >
+                        {/* ── Background ── */}
+                        <rect width={svgW} height={svgH} fill="#ffffff" />
+
+                        {/* ── PANEL BOX ── */}
+                        <rect x={panelX} y={PANEL_Y} width={PANEL_W} height={PANEL_H} rx="10" fill="#0f172a" />
+                        <rect x={panelX} y={PANEL_Y} width={PANEL_W} height={6} rx="3" fill="#3b82f6" />
+                        <text x={svgW / 2} y={PANEL_Y + 28} textAnchor="middle" fill="#ffffff" fontSize="13" fontWeight="bold">{currentBrand?.name || 'Fire Panel'}</text>
+                        <text x={svgW / 2} y={PANEL_Y + 46} textAnchor="middle" fill="#94a3b8" fontSize="11">{currentPanel?.name || 'Panel Model'}</text>
+                        <text x={svgW / 2} y={PANEL_Y + 63} textAnchor="middle" fill="#3b82f6" fontSize="10">{currentPanel?.nominalVoltage || 24}V DC  |  {loops.length} Loops  |  {currentPanel?.maxDevicesPerLoop} Dev/Loop</text>
+
+                        {/* ── TRUNK LINE (panel → bus) ── */}
+                        <line x1={svgW / 2} y1={PANEL_Y + PANEL_H} x2={svgW / 2} y2={BUS_Y} stroke="#3b82f6" strokeWidth="2.5" />
+
+                        {/* ── HORIZONTAL BUS LINE ── */}
+                        {expandedLoops.length > 0 && (
+                          <line
+                            x1={loopXCenter(0)}
+                            y1={BUS_Y}
+                            x2={loopXCenter(expandedLoops.length - 1)}
+                            y2={BUS_Y}
+                            stroke="#3b82f6"
+                            strokeWidth="2.5"
+                          />
+                        )}
+
+                        {/* ── PER LOOP ── */}
+                        {expandedLoops.map((loop, li) => {
+                          const cx = loopXCenter(li);
+                          const loopColor = loop.status === 'danger' ? '#ef4444' : loop.status === 'warning' ? '#f59e0b' : '#10b981';
+                          const LOOP_BOX_W = 140;
+                          const lbx = cx - LOOP_BOX_W / 2;
+
+                          return (
+                            <g key={loop.id}>
+                              {/* bus → loop vertical drop */}
+                              <line x1={cx} y1={BUS_Y} x2={cx} y2={LOOP_Y} stroke="#3b82f6" strokeWidth="2" />
+
+                              {/* Loop box */}
+                              <rect x={lbx} y={LOOP_Y} width={LOOP_BOX_W} height={LOOP_BOX_H} rx="8" fill={loopColor} fillOpacity="0.08" stroke={loopColor} strokeWidth="2" />
+                              <rect x={lbx} y={LOOP_Y} width={LOOP_BOX_W} height={20} rx="4" fill={loopColor} fillOpacity="0.85" />
+                              <text x={cx} y={LOOP_Y + 14} textAnchor="middle" fill="#ffffff" fontSize="11" fontWeight="bold">{loop.name}</text>
+                              <text x={cx} y={LOOP_Y + 32} textAnchor="middle" fill={loopColor} fontSize="9" fontWeight="600">{loop.cableLength}m · {loop.cableSizeMM2}mm²</text>
+                              <text x={cx} y={LOOP_Y + 47} textAnchor="middle" fill="#64748b" fontSize="9">{loop.voltageDropPct.toFixed(1)}% drop · {loop.endVoltage.toFixed(1)}V end</text>
+
+                              {/* loop → first device line */}
+                              {loop.expandedDevices.length > 0 && (
+                                <line x1={cx} y1={LOOP_Y + LOOP_BOX_H} x2={cx} y2={DEV_START_Y} stroke={loopColor} strokeWidth="1.5" strokeDasharray="4,2" />
+                              )}
+
+                              {/* ── DEVICES ── */}
+                              {loop.expandedDevices.map((dev, di) => {
+                                const dy = DEV_START_Y + di * DEV_H;
+                                const SYM = 14;
+                                const symX = cx - SYM / 2;
+                                const symY = dy + 8;
+
+                                // Device symbol based on type
+                                const symbol = (() => {
+                                  if (dev.type === 'detector') return (
+                                    <g>
+                                      <circle cx={cx} cy={symY + SYM / 2} r={SYM / 2} fill="none" stroke={dev.color} strokeWidth="1.8" />
+                                      <line x1={cx - SYM * 0.3} y1={symY + SYM / 2} x2={cx + SYM * 0.3} y2={symY + SYM / 2} stroke={dev.color} strokeWidth="1.5" />
+                                      <line x1={cx} y1={symY + SYM * 0.2} x2={cx} y2={symY + SYM * 0.8} stroke={dev.color} strokeWidth="1.5" />
+                                    </g>
+                                  );
+                                  if (dev.type === 'sounder') return (
+                                    <g>
+                                      <polygon points={`${cx},${symY} ${cx + SYM * 0.7},${symY + SYM * 0.5} ${cx},${symY + SYM}`} fill={dev.color} fillOpacity="0.2" stroke={dev.color} strokeWidth="1.5" />
+                                      <line x1={cx + SYM * 0.4} y1={symY + SYM * 0.2} x2={cx + SYM * 0.75} y2={symY + SYM * 0.15} stroke={dev.color} strokeWidth="1.2" />
+                                    </g>
+                                  );
+                                  if (dev.type === 'callpoint') return (
+                                    <g>
+                                      <rect x={symX} y={symY} width={SYM} height={SYM} rx="2" fill="none" stroke={dev.color} strokeWidth="1.8" />
+                                      <line x1={symX} y1={symY} x2={symX + SYM} y2={symY + SYM} stroke={dev.color} strokeWidth="1.2" />
+                                    </g>
+                                  );
+                                  // module / custom / unknown → rectangle with dots
+                                  return (
+                                    <g>
+                                      <rect x={symX - 2} y={symY} width={SYM + 4} height={SYM} rx="2" fill="none" stroke={dev.color} strokeWidth="1.8" />
+                                      <circle cx={cx - 3} cy={symY + SYM / 2} r="1.5" fill={dev.color} />
+                                      <circle cx={cx + 3} cy={symY + SYM / 2} r="1.5" fill={dev.color} />
+                                    </g>
+                                  );
+                                })();
+
+                                return (
+                                  <g key={dev.addr}>
+                                    {/* connector line */}
+                                    <line x1={cx} y1={dy} x2={cx} y2={dy + 8} stroke={loopColor} strokeWidth="1.5" strokeDasharray="4,2" />
+
+                                    {/* White device card */}
+                                    <rect x={cx - 58} y={dy + 6} width={116} height={DEV_H - 14} rx="6" fill="#f8fafc" stroke={dev.color} strokeWidth="1.2" />
+
+                                    {/* Symbol */}
+                                    {symbol}
+
+                                    {/* Address badge */}
+                                    <rect x={cx - 56} y={dy + 9} width={38} height={14} rx="3" fill={dev.color} fillOpacity="0.12" />
+                                    <text x={cx - 37} y={dy + 20} textAnchor="middle" fill={dev.color} fontSize="9" fontWeight="bold">{dev.addr}</text>
+
+                                    {/* Device name */}
+                                    <text x={cx} y={dy + 40} textAnchor="middle" fill="#1e293b" fontSize="9.5" fontWeight="600">{dev.name}</text>
+
+                                    {/* Type label */}
+                                    <text x={cx} y={dy + 52} textAnchor="middle" fill="#94a3b8" fontSize="8">{dev.type.charAt(0).toUpperCase() + dev.type.slice(1)}</text>
+
+                                    {/* bottom connector */}
+                                    {di < loop.expandedDevices.length - 1 && (
+                                      <line x1={cx} y1={dy + DEV_H - 14} x2={cx} y2={dy + DEV_H} stroke={loopColor} strokeWidth="1.5" strokeDasharray="4,2" />
+                                    )}
+                                  </g>
+                                );
+                              })}
+                            </g>
+                          );
+                        })}
+
+                        {/* ── LEGEND ── */}
+                        {[
+                          { color: '#3b82f6', label: 'Detector' },
+                          { color: '#ef4444', label: 'Sounder' },
+                          { color: '#f59e0b', label: 'Call Point' },
+                          { color: '#64748b', label: 'Module' },
+                        ].map((item, idx) => (
+                          <g key={idx} transform={`translate(${16 + idx * 105}, ${svgH - 24})`}>
+                            <rect width="10" height="10" rx="2" fill={item.color} fillOpacity="0.25" stroke={item.color} strokeWidth="1.5" />
+                            <text x="14" y="9" fill="#64748b" fontSize="9">{item.label}</text>
+                          </g>
+                        ))}
+                      </svg>
+                    </div>
+                  );
+                })()}
               </CardContent>
             </Card>
           </TabsContent>
