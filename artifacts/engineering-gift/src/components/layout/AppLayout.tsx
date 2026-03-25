@@ -17,7 +17,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
         <Sidebar />
         
-        <main className="lg:pl-72 pt-16 lg:pt-0 min-h-screen relative z-10 flex flex-col">
+        <main className="lg:pl-64 pt-14 lg:pt-0 min-h-screen relative z-10 flex flex-col">
           <AnimatePresence mode="wait">
             <motion.div
               key={location}

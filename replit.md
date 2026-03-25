@@ -20,24 +20,20 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 
 ### Engineering Gift (`artifacts/engineering-gift`)
 
-A professional SaaS-style ELV (Extra Low Voltage) engineering calculator web app.
+A professional SaaS-style ELV (Extra Low Voltage) engineering calculator web app (v2.0).
 
-**Features:**
-- Landing page with hero section (English + Arabic subtitle)
-- Sidebar navigation with dark/light mode toggle
-- 3 calculator tools with real-time calculations:
-  1. Voltage Drop Calculator (fire alarm & cables) - formula: VD = (2 × L × I × ρ) / A
-  2. Fiber Optic Link Budget Calculator - Tx Power, attenuation, connector/splice losses
-  3. Inrush Current Calculator - breaker type selection (B/C/D)
-- Interactive recharts line chart (voltage drop vs distance)
-- PDF export (jsPDF) and Excel export (SheetJS)
-- Calculation history saved to PostgreSQL via API
-- Engineering formulas display on each page
-- Tooltip explanations on inputs
-- "Example Values" button on each calculator
-- Responsive (mobile + desktop)
+**Modules:**
+1. **Fire Alarm LSN** — Bosch (FPA-5000, FPA-1200, AVENAR 8000), Honeywell, Siemens, Custom (15 loops); voltage drop per loop, battery calc (EN-54), SVG Single Line Diagram with per-device addressing, PDF/Excel export
+2. **CCTV Calculator** — DORI camera selector (Detection/Observation/Recognition/Identification), focal length + FOV calc, NVR storage calculator with H.264/H.265 comparison chart
+3. **Telephone System** — Avaya/Panasonic/NEC/Custom brand selector, G.711/G.729/G.722/Opus codec storage calc, system recommendation
+4. **Voltage Drop Calculator** — fire alarm & standard cables - formula: VD = (2 × L × I × ρ) / A
+5. **Fiber Optic Link Budget** — Tx Power, attenuation, connector/splice losses
+6. **Inrush Current** — multiplier-based peak calc + IEC 60898 B/C/D breaker curve chart (recharts log-scale)
+7. **Calculation History** — PostgreSQL persistence via API
 
-**Frontend packages:** clsx, date-fns, framer-motion, jspdf, jspdf-autotable, recharts, tailwind-merge, xlsx
+**UI/UX:** Fully responsive (sm/md/lg/xl), collapsible sidebar on mobile, dark/light mode, glassmorphism (Apple-style), framer-motion page transitions, EN/AR language toggle in Fire Alarm module
+
+**Frontend packages:** clsx, framer-motion, jspdf, jspdf-autotable, recharts, tailwind-merge, xlsx
 
 ### API Server (`artifacts/api-server`)
 

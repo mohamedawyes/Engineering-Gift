@@ -4,11 +4,11 @@ export interface Device {
   id: string;
   name: string;
   type: DeviceType;
-  currentMA: number;       // mA consumption (quiescent/standby)
-  alarmCurrentMA: number;  // mA consumption in alarm
+  currentMA: number;
+  alarmCurrentMA: number;
   voltageMin: number;
   voltageMax: number;
-  maxPerLoop: number;      // max devices per loop
+  maxPerLoop: number;
   description?: string;
 }
 
@@ -17,8 +17,8 @@ export interface Panel {
   name: string;
   maxLoops: number;
   maxDevicesPerLoop: number;
-  nominalVoltage: number;       // Loop voltage (e.g. 24V)
-  maxLoopCurrent: number;       // mA
+  nominalVoltage: number;
+  maxLoopCurrent: number;
   batteryBackup: boolean;
 }
 
@@ -50,6 +50,15 @@ export const brands: Brand[] = [
         maxDevicesPerLoop: 127,
         nominalVoltage: 24,
         maxLoopCurrent: 300,
+        batteryBackup: true
+      },
+      {
+        id: "avenar-8000",
+        name: "AVENAR panel 8000",
+        maxLoops: 16,
+        maxDevicesPerLoop: 127,
+        nominalVoltage: 24,
+        maxLoopCurrent: 500,
         batteryBackup: true
       }
     ],
@@ -133,7 +142,7 @@ export const brands: Brand[] = [
       {
         id: "custom-panel",
         name: "Custom Panel",
-        maxLoops: 10,
+        maxLoops: 15,
         maxDevicesPerLoop: 250,
         nominalVoltage: 24,
         maxLoopCurrent: 500,

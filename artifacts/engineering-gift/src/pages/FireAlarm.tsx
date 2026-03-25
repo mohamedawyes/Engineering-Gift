@@ -905,11 +905,14 @@ export default function FireAlarm() {
                   });
 
                   const maxDevices = Math.max(0, ...expandedLoops.map(l => l.expandedDevices.length));
-                  const svgW = Math.max(860, expandedLoops.length * COL_W + 80);
+                  const svgW = Math.max(860, expandedLoops.length * COL_W + 100);
                   const svgH = DEV_START_Y + maxDevices * DEV_H + 60;
                   const panelX = svgW / 2 - PANEL_W / 2;
 
-                  const loopXCenter = (li: number) => 60 + li * COL_W + COL_W / 2 - 10;
+                  // Center all loops under the panel so the trunk always connects
+                  const totalBusWidth = Math.max(0, (expandedLoops.length - 1) * COL_W);
+                  const busStartX = svgW / 2 - totalBusWidth / 2;
+                  const loopXCenter = (li: number) => busStartX + li * COL_W;
 
                   return (
                     <div className="bg-white dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 m-4 overflow-x-auto">
