@@ -9,15 +9,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { 
   Flame, Battery, Cable, Plus, Trash2, Copy, ChevronDown, ChevronUp, 
-  GitBranch, Download, FileText, FileSpreadsheet, AlertTriangle, CheckCircle2,
+  GitBranch, Printer, FileSpreadsheet, Save, AlertTriangle, CheckCircle2,
   AlertCircle, Info
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { brands, Brand, Panel, Device } from "@/lib/fireAlarmData";
 import { useToast } from "@/hooks/use-toast";
-import jsPDF from "jspdf";
-import "jspdf-autotable";
 import * as XLSX from "xlsx";
+import { saveToHistory } from "@/hooks/use-history";
 
 // --- TYPES ---
 interface LoopDevice {
@@ -251,145 +250,30 @@ export default function FireAlarm() {
 
   const t = (en: string, ar: string) => language === "en" ? en : ar;
 
-  // Exports
-  const handleExportPDF = async () => {
-    try {
-      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-      
-      // Header
-      doc.setFontSize(22);
-      doc.setTextColor(0, 112, 243);
-      doc.text("Engineering Gift", 14, 20);
-      doc.setFontSize(10);
-      doc.setTextColor(100, 100, 100);
-      doc.text("Fire Alarm LSN — Full System Report", 14, 26);
-      doc.line(14, 30, 196, 30);
-      
-      // Project Info
-      doc.setFontSize(11);
-      doc.setTextColor(20, 20, 20);
-      doc.text(`Project: ${projectInfo.name || 'N/A'}`, 14, 40);
-      doc.text(`Engineer: ${projectInfo.engineer || 'N/A'}`, 14, 47);
-      doc.text(`Client: ${projectInfo.client || 'N/A'}`, 14, 54);
-      doc.text(`Date: ${projectInfo.date}`, 14, 61);
-      doc.text(`Brand: ${currentBrand?.name}   |   Panel: ${currentPanel?.name}`, 14, 68);
-      
-      // Loops Summary Table
-      doc.setFontSize(12);
-      doc.setTextColor(0, 112, 243);
-      doc.text("System Loops Summary", 14, 78);
-      // @ts-ignore
-      doc.autoTable({
-        startY: 81,
-        head: [['Loop', 'Devices', 'Standby mA', 'Alarm mA', 'VDrop (V)', 'VDrop %', 'End Volt', 'Status']],
-        body: loopCalculations.map(l => [
-          l.name, l.totalDevices,
-          l.standbyCurrentMA.toFixed(1), l.alarmCurrentMA.toFixed(1),
-          l.voltageDrop.toFixed(2), `${l.voltageDropPct.toFixed(1)}%`,
-          `${l.endVoltage.toFixed(2)} V`, l.status.toUpperCase()
-        ]),
-        theme: 'grid',
-        headStyles: { fillColor: [0, 112, 243] },
-        styles: { fontSize: 8 }
-      });
-      // @ts-ignore
-      let yPos = doc.lastAutoTable.finalY + 8;
+  // Print & History
+  const handlePrint = () => window.print();
 
-      // Device Address List per Loop
-      doc.setFontSize(12);
-      doc.setTextColor(0, 112, 243);
-      doc.text("Device Address List", 14, yPos);
-      yPos += 3;
-      const deviceRows: string[][] = [];
-      loopCalculations.forEach((loop, li) => {
-        let addrSeq = 1;
-        loop.devices.forEach(ld => {
-          const devInfo = ld.deviceId === 'custom'
-            ? { name: ld.customName || 'Custom', type: 'custom' }
-            : currentBrand.devices.find(d => d.id === ld.deviceId) || { name: 'Unknown', type: 'unknown' };
-          for (let q = 0; q < ld.quantity; q++) {
-            const addr = `L${li + 1}-${String(addrSeq).padStart(3, '0')}`;
-            deviceRows.push([loop.name, addr, devInfo.name, devInfo.type.charAt(0).toUpperCase() + devInfo.type.slice(1)]);
-            addrSeq++;
-          }
-        });
-      });
-      // @ts-ignore
-      doc.autoTable({
-        startY: yPos,
-        head: [['Loop', 'Address', 'Device Name', 'Type']],
-        body: deviceRows,
-        theme: 'striped',
-        headStyles: { fillColor: [15, 23, 42] },
-        styles: { fontSize: 8 }
-      });
-      // @ts-ignore
-      yPos = doc.lastAutoTable.finalY + 8;
-
-      // Battery Calculation
-      if (yPos > 240) { doc.addPage(); yPos = 20; }
-      doc.setFontSize(12);
-      doc.setTextColor(0, 112, 243);
-      doc.text("Battery Calculation (EN-54 | 25% Safety Factor)", 14, yPos);
-      yPos += 3;
-      // @ts-ignore
-      doc.autoTable({
-        startY: yPos,
-        head: [['Parameter', 'Value']],
-        body: [
-          ['Total Standby Current', `${systemCalculations.totalStandbyMA.toFixed(1)} mA`],
-          ['Total Alarm Current', `${systemCalculations.totalAlarmMA.toFixed(1)} mA`],
-          ['Standby Time', `${standbyHours} Hours`],
-          ['Alarm Time', `${alarmMinutes} Minutes`],
-          ['Calculated Capacity (incl. 25% safety)', `${systemCalculations.batteryAh.toFixed(2)} Ah`],
-          ['Recommended Battery Size', `${systemCalculations.recommendedBattery} Ah`]
-        ],
-        theme: 'grid',
-        styles: { fontSize: 9 }
-      });
-
-      // SLD Diagram on new page
-      if (svgRef.current) {
-        try {
-          const svgEl = svgRef.current;
-          const svgData = new XMLSerializer().serializeToString(svgEl);
-          const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-          const url = URL.createObjectURL(svgBlob);
-          await new Promise<void>((resolve) => {
-            const img = new Image();
-            img.onload = () => {
-              const canvas = document.createElement('canvas');
-              const scale = 2;
-              canvas.width = (svgEl.viewBox.baseVal.width || 900) * scale;
-              canvas.height = (svgEl.viewBox.baseVal.height || 600) * scale;
-              const ctx = canvas.getContext('2d');
-              if (ctx) {
-                ctx.fillStyle = '#ffffff';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-              }
-              const dataUrl = canvas.toDataURL('image/png');
-              doc.addPage('a4', 'landscape');
-              doc.setFontSize(13);
-              doc.setTextColor(0, 112, 243);
-              doc.text("Single Line Diagram (SLD)", 14, 14);
-              const pdfW = 267;
-              const pdfH = Math.min(180, (canvas.height / canvas.width) * pdfW);
-              doc.addImage(dataUrl, 'PNG', 14, 18, pdfW, pdfH);
-              URL.revokeObjectURL(url);
-              resolve();
-            };
-            img.onerror = () => { URL.revokeObjectURL(url); resolve(); };
-            img.src = url;
-          });
-        } catch { /* skip diagram if SVG render fails */ }
-      }
-
-      doc.save(`FireAlarm_Report_${projectInfo.name || 'Project'}.pdf`);
-      toast({ title: "PDF Exported", description: "Full report with SLD downloaded successfully!" });
-    } catch (e) {
-      toast({ title: "Export Failed", description: "Failed to generate PDF.", variant: "destructive" });
-    }
+  const handleSaveHistory = () => {
+    saveToHistory({
+      module: "Fire Alarm LSN",
+      projectName: projectInfo.name || undefined,
+      inputs: {
+        Brand: currentBrand?.name,
+        Panel: currentPanel?.name,
+        Loops: loops.length,
+        "Standby (h)": standbyHours,
+        "Alarm (min)": alarmMinutes,
+      },
+      results: {
+        "Total Loops": loopCalculations.length,
+        "Total Devices": loopCalculations.reduce((s, l) => s + l.totalDevices, 0),
+        "Standby Current (mA)": systemCalculations.totalStandbyMA.toFixed(1),
+        "Alarm Current (mA)": systemCalculations.totalAlarmMA.toFixed(1),
+        "Battery Capacity (Ah)": systemCalculations.batteryAh.toFixed(2),
+        "Recommended Battery": `${systemCalculations.recommendedBattery} Ah`,
+      },
+    });
+    toast({ title: "Saved!", description: "Calculation saved to history." });
   };
 
   const handleExportExcel = () => {
@@ -571,7 +455,7 @@ export default function FireAlarm() {
                 <GitBranch className="w-4 h-4 mr-2" /> {t("Diagram", "مخطط الدائرة")}
               </TabsTrigger>
               <TabsTrigger value="export" className="data-[state=active]:bg-primary data-[state=active]:text-white rounded-lg px-6">
-                <Download className="w-4 h-4 mr-2" /> {t("Export", "التصدير")}
+                <FileSpreadsheet className="w-4 h-4 mr-2" /> {t("Export", "التصدير")}
               </TabsTrigger>
             </TabsList>
             
@@ -1064,26 +948,37 @@ export default function FireAlarm() {
           </TabsContent>
 
           <TabsContent value="export">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card className="glass-card border-0 shadow-lg hover:shadow-xl transition-all hover:-translate-y-1 group cursor-pointer" onClick={handleExportPDF}>
-                <CardContent className="p-10 text-center space-y-4">
-                  <div className="w-20 h-20 mx-auto rounded-full bg-red-50 dark:bg-red-900/20 text-red-500 flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <FileText className="w-10 h-10" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              <Card className="glass-card border-0 shadow hover:shadow-xl transition-all hover:-translate-y-1 group cursor-pointer" onClick={handlePrint}>
+                <CardContent className="p-8 text-center space-y-3">
+                  <div className="w-16 h-16 mx-auto rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Printer className="w-8 h-8" />
                   </div>
-                  <h3 className="text-2xl font-bold font-display">Export PDF</h3>
-                  <p className="text-slate-500">Generate a comprehensive multi-page PDF report with all tables and calculations formatted for printing.</p>
-                  <Button className="w-full mt-4 bg-red-500 hover:bg-red-600 text-white rounded-full">Download PDF</Button>
+                  <h3 className="text-xl font-bold font-display">Print Report</h3>
+                  <p className="text-slate-500 text-sm">Opens the browser print dialog with a clean, full-page report layout including SLD diagram.</p>
+                  <Button className="w-full mt-2 bg-blue-500 hover:bg-blue-600 text-white rounded-full text-sm">Print / Save as PDF</Button>
                 </CardContent>
               </Card>
 
-              <Card className="glass-card border-0 shadow-lg hover:shadow-xl transition-all hover:-translate-y-1 group cursor-pointer" onClick={handleExportExcel}>
-                <CardContent className="p-10 text-center space-y-4">
-                  <div className="w-20 h-20 mx-auto rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-emerald-500 flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <FileSpreadsheet className="w-10 h-10" />
+              <Card className="glass-card border-0 shadow hover:shadow-xl transition-all hover:-translate-y-1 group cursor-pointer" onClick={handleExportExcel}>
+                <CardContent className="p-8 text-center space-y-3">
+                  <div className="w-16 h-16 mx-auto rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-emerald-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <FileSpreadsheet className="w-8 h-8" />
                   </div>
-                  <h3 className="text-2xl font-bold font-display">Export Excel</h3>
-                  <p className="text-slate-500">Download raw data into a multi-sheet XLSX file for further processing or archiving.</p>
-                  <Button className="w-full mt-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-full">Download Excel</Button>
+                  <h3 className="text-xl font-bold font-display">Export Excel</h3>
+                  <p className="text-slate-500 text-sm">Download raw data into a multi-sheet XLSX file for further processing or archiving.</p>
+                  <Button className="w-full mt-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-full text-sm">Download Excel</Button>
+                </CardContent>
+              </Card>
+
+              <Card className="glass-card border-0 shadow hover:shadow-xl transition-all hover:-translate-y-1 group cursor-pointer" onClick={handleSaveHistory}>
+                <CardContent className="p-8 text-center space-y-3">
+                  <div className="w-16 h-16 mx-auto rounded-full bg-violet-50 dark:bg-violet-900/20 text-violet-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Save className="w-8 h-8" />
+                  </div>
+                  <h3 className="text-xl font-bold font-display">Save to History</h3>
+                  <p className="text-slate-500 text-sm">Save this calculation to your local browser history for future reference or comparison.</p>
+                  <Button className="w-full mt-2 bg-violet-500 hover:bg-violet-600 text-white rounded-full text-sm">Save Calculation</Button>
                 </CardContent>
               </Card>
             </div>

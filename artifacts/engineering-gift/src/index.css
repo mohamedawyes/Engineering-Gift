@@ -142,3 +142,90 @@
     @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-cyan-500;
   }
 }
+
+/* ── Print Styles ───────────────────────────────────────────────── */
+@media print {
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Reset background/blur for print */
+  body {
+    background: #fff !important;
+    color: #111 !important;
+    font-family: Arial, sans-serif;
+  }
+
+  /* Hide navigation chrome */
+  .no-print,
+  [data-sidebar],
+  [data-mobile-nav],
+  nav,
+  aside,
+  header {
+    display: none !important;
+  }
+
+  /* Remove Tailwind-injected decorations */
+  .fixed.inset-0.overflow-hidden {
+    display: none !important;
+  }
+
+  /* Full width main content, no sidebar offset */
+  main {
+    padding-left: 0 !important;
+    padding-top: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  /* Show ALL tab panels when printing */
+  [role="tabpanel"][data-state="inactive"],
+  [role="tabpanel"][hidden] {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    height: auto !important;
+  }
+
+  /* Remove card shadows / blur */
+  .glass, .glass-card {
+    background: #fff !important;
+    border: 1px solid #ddd !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+  }
+
+  /* Make buttons invisible but keep layout */
+  .no-print-btn {
+    display: none !important;
+  }
+
+  /* Page breaks */
+  .print-break {
+    page-break-before: always;
+  }
+
+  /* Ensure SVG diagram prints */
+  svg {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+
+  /* Tab list hidden */
+  [role="tablist"] {
+    display: none !important;
+  }
+
+  /* Print header that shows when printing */
+  .print-header {
+    display: block !important;
+  }
+}
+
+/* Hide print-only elements on screen */
+.print-header {
+  display: none;
+}
+

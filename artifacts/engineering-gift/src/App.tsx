@@ -12,6 +12,7 @@ import History from "@/pages/History";
 import FireAlarm from "@/pages/FireAlarm";
 import CCTV from "@/pages/CCTV";
 import Telephone from "@/pages/Telephone";
+import PA from "@/pages/PA";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -35,6 +36,7 @@ function Router() {
         <Route path="/fire-alarm" component={FireAlarm} />
         <Route path="/cctv" component={CCTV} />
         <Route path="/telephone" component={Telephone} />
+        <Route path="/pa" component={PA} />
         <Route component={NotFound} />
       </Switch>
     </AppLayout>

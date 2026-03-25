@@ -7,7 +7,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
 
   return (
-    <ThemeProvider defaultTheme="system">
+    <ThemeProvider defaultTheme="light">
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
         {/* Abstract animated background subtle touches */}
         <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">

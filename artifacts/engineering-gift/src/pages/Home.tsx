@@ -1,6 +1,6 @@
 import { Link } from "wouter";
 import { motion } from "framer-motion";
-import { Zap, Wifi, Activity, BookOpen, Flame, Camera, Phone, User } from "lucide-react";
+import { Zap, Wifi, Activity, BookOpen, Flame, Camera, Phone, Volume2, User } from "lucide-react";
 
 const tools = [
   {
@@ -28,6 +28,15 @@ const tools = [
     href: "/telephone",
     color: "from-teal-500 to-emerald-500",
     shadow: "shadow-teal-500/20",
+    badge: "NEW"
+  },
+  {
+    title: "PA System",
+    description: "Amplifier sizing, SPL/STI calculation, speaker recommendation, and zone single line diagram.",
+    icon: Volume2,
+    href: "/pa",
+    color: "from-pink-500 to-rose-500",
+    shadow: "shadow-pink-500/20",
     badge: "NEW"
   },
   {

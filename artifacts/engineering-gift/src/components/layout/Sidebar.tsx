@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import {
   Calculator, Home, History, Zap, Activity,
-  Wifi, Moon, Sun, Menu, Flame, Camera, Phone, X
+  Wifi, Moon, Sun, Menu, Flame, Camera, Phone, Volume2, X
 } from "lucide-react";
 import { useTheme } from "../theme-provider";
 import { Button } from "../ui/button";
@@ -20,6 +20,7 @@ const navItems = [
   { href: "/fire-alarm",    label: "Fire Alarm LSN",  icon: Flame,    badge: "NEW" },
   { href: "/cctv",          label: "CCTV Calculator", icon: Camera,   badge: "NEW" },
   { href: "/telephone",     label: "Telephone System",icon: Phone,    badge: "NEW" },
+  { href: "/pa",            label: "PA System",       icon: Volume2,  badge: "NEW" },
   { href: "/voltage-drop",  label: "Voltage Drop",    icon: Zap },
   { href: "/fiber-budget",  label: "Fiber Budget",    icon: Wifi },
   { href: "/inrush-current",label: "Inrush Current",  icon: Activity },
@@ -97,7 +98,7 @@ export function Sidebar() {
   return (
     <>
       {/* ── Mobile Top Bar ── */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 h-14 glass z-40 flex items-center px-4 justify-between border-b border-border">
+      <div className="lg:hidden fixed top-0 left-0 right-0 h-14 glass z-40 flex items-center px-4 justify-between border-b border-border no-print">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-cyan-400 flex items-center justify-center text-white flex-shrink-0">
             <Calculator className="w-4 h-4" />
@@ -118,7 +119,7 @@ export function Sidebar() {
       </Sheet>
 
       {/* ── Desktop Sidebar ── */}
-      <div className="hidden lg:block fixed inset-y-0 left-0 w-64 glass-card border-r border-slate-200/50 dark:border-white/10 z-40 bg-white/50 dark:bg-black/20">
+      <div className="hidden lg:block fixed inset-y-0 left-0 w-64 glass-card border-r border-slate-200/50 dark:border-white/10 z-40 bg-white/50 dark:bg-black/20 no-print">
         <NavContent />
       </div>
     </>
